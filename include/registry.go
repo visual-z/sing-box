@@ -74,6 +74,7 @@ func InboundRegistry() *inbound.Registry {
 	registerCloudflaredInbound(registry)
 	registerStubForRemovedInbounds(registry)
 
+	applyExtensions(registry, &inboundExtension)
 	return registry
 }
 
@@ -104,6 +105,7 @@ func OutboundRegistry() *outbound.Registry {
 	registerQUICOutbounds(registry)
 	registerStubForRemovedOutbounds(registry)
 
+	applyExtensions(registry, &outboundExtension)
 	return registry
 }
 
@@ -115,6 +117,7 @@ func EndpointRegistry() *endpoint.Registry {
 	registerOpenVPNEndpoints(registry)
 	registerTailscaleEndpoint(registry)
 
+	applyExtensions(registry, &endpointExtension)
 	return registry
 }
 
