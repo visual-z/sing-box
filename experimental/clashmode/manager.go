@@ -14,9 +14,12 @@ import (
 )
 
 type Manager struct {
-	ctx          context.Context
-	logger       log.Logger
-	dnsRouter    adapter.DNSRouter
+	ctx       context.Context
+	logger    log.Logger
+	dnsRouter adapter.DNSRouter
+	// modeAccess guards mode: the router reads it for every connection while
+	// SetMode writes it from the command server, and a Go string is two words.
+	modeAccess   sync.RWMutex
 	mode         string
 	modeList     []string
 	updateAccess sync.Mutex
@@ -53,13 +56,17 @@ func (m *Manager) Start(stage adapter.StartStage, scope *adapter.Scope) error {
 		if common.Any(m.modeList, func(it string) bool {
 			return strings.EqualFold(it, mode)
 		}) {
+			m.modeAccess.Lock()
 			m.mode = mode
+			m.modeAccess.Unlock()
 		}
 	}
 	return nil
 }
 
 func (m *Manager) Mode() string {
+	m.modeAccess.RLock()
+	defer m.modeAccess.RUnlock()
 	return m.mode
 }
 
@@ -82,10 +89,14 @@ func (m *Manager) SetMode(newMode string) {
 	if !common.Contains(m.modeList, newMode) {
 		return
 	}
+	m.modeAccess.Lock()
 	if newMode == m.mode {
+		m.modeAccess.Unlock()
 		return
 	}
 	m.mode = newMode
+	// Released before the hooks run: they read the mode back through Mode().
+	m.modeAccess.Unlock()
 	m.updateAccess.Lock()
 	for _, hook := range m.updateHooks {
 		hook.Emit(struct{}{})
